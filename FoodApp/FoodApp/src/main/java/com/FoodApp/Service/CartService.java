@@ -1,5 +1,8 @@
 package com.FoodApp.Service;
 
+import com.FoodApp.IO.CartRequest;
+import com.FoodApp.IO.CartResponse;
+
 public interface CartService  {
-    void addToCart(String foodId);
+    CartResponse addToCart(CartRequest request);
 }

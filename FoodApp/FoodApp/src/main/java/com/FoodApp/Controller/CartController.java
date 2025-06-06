@@ -1,22 +1,24 @@
 package com.FoodApp.Controller;
+import com.FoodApp.IO.CartRequest;
+import com.FoodApp.IO.CartResponse;
 import com.FoodApp.Service.CartService;
 import lombok.AllArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
-import java.util.Map;
 @AllArgsConstructor
 @RestController
 @RequestMapping("/api/cart")
 public class CartController {
     private final CartService cartService;
     @PostMapping
-    public ResponseEntity<?> addToCart(@RequestBody Map<String, String> request) {
-        String foodId = request.get("foodId");
+    public CartResponse addToCart(@RequestBody CartRequest request) {
+        String foodId = request.getFoodId();
         if (foodId == null || foodId.isEmpty()) {
-            return ResponseEntity.badRequest().body("Food ID is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "FoodID Not Found");
         }
-        cartService.addToCart(foodId);
-        return ResponseEntity.ok().body(null);
+        return cartService.addToCart(request);
     }
 }
