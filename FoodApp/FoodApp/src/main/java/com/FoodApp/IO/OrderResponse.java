@@ -1,0 +1,19 @@
+package com.FoodApp.IO;
+
+import lombok.Builder;
+import lombok.Data;
+import org.springframework.data.annotation.Id;
+@Data
+@Builder
+public class OrderResponse {
+    @Id
+    private String id;
+    private String userId;
+    private String userAddress;
+    private String phoneNumber;
+    private String email;
+    private double amount;
+    private String paymentStatus;
+    private String razorpayOrderId;
+    private String orderStatus;
+}
