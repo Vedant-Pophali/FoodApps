@@ -1,5 +1,8 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom'; 
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
 import MenuBar from './components/MenuBar/MenuBar';
 import Home from './pages/Home/Home';
 import Contact from './pages/Contact Us/Contact';
@@ -24,7 +27,9 @@ const App = () => {
         <Route path='/login' element={<Login />} />
         <Route path='/register' element={<Register />} />
       </Routes>
+      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 };
+
 export default App;

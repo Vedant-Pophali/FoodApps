@@ -1,8 +1,47 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useContext, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import "react-toastify/dist/ReactToastify.css";
 import "./Login.css";
+import {StoreContext} from '../../context/StoreContext';
+
+const API_URL = "http://localhost:8080/api/login";
 
 const Login = () => {
+  const navigate = useNavigate();
+  const {setToken} = useContext(StoreContext);
+  const [data, setData] = useState({
+    email: '',
+    password: ''
+  });
+
+  const onChangeHandler = (event) => {
+    const { name, value } = event.target;
+    setData(prevData => ({ ...prevData, [name]: value }));
+  };
+
+  const onSubmitHandler = async (event) => {
+    event.preventDefault();
+    try {
+        const response = await login(data);
+      if (response.status === 200) {
+        setToken(response.data.token);
+        localStorage.setItem('token',response.data.token);
+        toast.success('Login successful!');
+        navigate('/'); 
+      } else {
+        toast.error('Login failed. Please check your credentials.');
+      }
+    } catch (error) {
+      if (error.response && error.response.status === 401) {
+        toast.error('Invalid email or password.');
+      } else {
+        toast.error('Login failed. Please try again later.');
+      }
+    }
+  };
+
   return (
     <div className="login-container">
       <div className="row">
@@ -10,13 +49,34 @@ const Login = () => {
           <div className="card border-0 shadow rounded-3 my-5">
             <div className="card-body p-4 p-sm-5">
               <h5 className="card-title text-center mb-5 fw-light fs-5">Sign In</h5>
-              <form>
+              <form onSubmit={onSubmitHandler}>
                 <div className="form-floating mb-3">
-                  <input type="email" className="form-control" id="floatingInput" placeholder="name@example.com" />
+                  <input 
+                    type="email" 
+                    className="form-control" 
+                    id="floatingInput" 
+                    placeholder="name@example.com" 
+                    name="email"
+                    value={data.email}
+                    onChange={onChangeHandler}
+                    required
+                    autoComplete="email"
+                  />
                   <label htmlFor="floatingInput">Email address</label>
                 </div>
+
                 <div className="form-floating mb-3">
-                  <input type="password" className="form-control" id="floatingPassword" placeholder="Password" />
+                  <input 
+                    type="password" 
+                    className="form-control" 
+                    id="floatingPassword" 
+                    placeholder="Password" 
+                    name="password"
+                    value={data.password}
+                    onChange={onChangeHandler}
+                    required
+                    autoComplete="current-password"
+                  />
                   <label htmlFor="floatingPassword">Password</label>
                 </div>
 
@@ -26,13 +86,17 @@ const Login = () => {
                   </button>
                 </div>
                 
-                <div className="d-grid">
-                  <button className="btn btn-outline-danger btn-login text-uppercase mt-2" type="reset">
+                <div className="d-grid mt-2">
+                  <button 
+                    className="btn btn-outline-danger btn-login text-uppercase" 
+                    type="button" 
+                    onClick={() => setData({ email: '', password: '' })}
+                  >
                     Reset
                   </button>
                 </div>
 
-                <div className="mt-4">
+                <div className="mt-4 text-center">
                   Don't have an account? <Link to="/register">Sign Up</Link>
                 </div>
               </form>
@@ -42,6 +106,6 @@ const Login = () => {
       </div>
     </div>
   );
-}
+};
 
 export default Login;
