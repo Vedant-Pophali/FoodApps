@@ -4,13 +4,21 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import "react-toastify/dist/ReactToastify.css";
 import "./Login.css";
-import {StoreContext} from '../../context/StoreContext';
+import { StoreContext } from '../../context/StoreContext';
 
 const API_URL = "http://localhost:8080/api/login";
 
+const login = async (data) => {
+  return await axios.post(API_URL, data, {
+    headers: {
+      "Content-Type": "application/json"
+    }
+  });
+};
+
 const Login = () => {
   const navigate = useNavigate();
-  const {setToken} = useContext(StoreContext);
+  const { setToken, loadCartData } = useContext(StoreContext);
   const [data, setData] = useState({
     email: '',
     password: ''
@@ -24,17 +32,25 @@ const Login = () => {
   const onSubmitHandler = async (event) => {
     event.preventDefault();
     try {
-        const response = await login(data);
-      if (response.status === 200) {
+      const response = await login(data);
+      if (response.status === 200 || response.status === 201) {
         setToken(response.data.token);
-        localStorage.setItem('token',response.data.token);
+        localStorage.setItem('token', response.data.token);
         toast.success('Login successful!');
-        navigate('/'); 
+        
+        try {
+          await loadCartData(response.data.token);
+        } catch (e) {
+          console.error("Failed to load cart data:", e);
+          // optionally: toast.warning('Failed to load cart data.');
+        }
+
+        navigate('/');
       } else {
         toast.error('Login failed. Please check your credentials.');
       }
     } catch (error) {
-      if (error.response && error.response.status === 401) {
+      if (error.response?.status === 401) {
         toast.error('Invalid email or password.');
       } else {
         toast.error('Login failed. Please try again later.');

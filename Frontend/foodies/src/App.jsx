@@ -1,7 +1,8 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom'; 
 import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import 'react-toastify/dist/ReactToastify.css';import 'bootstrap/dist/js/bootstrap.bundle.min.js';
+
 
 import MenuBar from './components/MenuBar/MenuBar';
 import Home from './pages/Home/Home';
@@ -12,6 +13,7 @@ import Cart from './pages/Cart/Cart';
 import PlaceOrder from './pages/PlaceOrder/PlaceOrder';
 import Login from './components/Login/Login';
 import Register from './components/Register/Register';
+
 
 const App = () => {
   return (
