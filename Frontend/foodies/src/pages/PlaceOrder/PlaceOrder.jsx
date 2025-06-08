@@ -1,350 +1,314 @@
-import React, { useContext } from "react";
+import React, { useContext, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./PlaceOrder.css";
 import { assets } from "../../assets/assets";
 import { StoreContext } from "../../context/StoreContext";
 import { calculateCartTotals } from "../../service/util/cartUtils";
+import axios from "axios";
+import { toast } from "react-toastify";
+import RAZORPAY_KEY from '../../service/util/constants';
 
 const PlaceOrder = () => {
-  const {foodList,quantities,setQuantities} = useContext(StoreContext);
-  const cartItems = foodList.filter(food => quantities[food.id]>0);
-  const {subtotal,shipping,tax,total} = calculateCartTotals(cartItems,quantities);  
+  const { foodList, quantities, setQuantities, token } = useContext(StoreContext);
+  const navigate = useNavigate();
+
+  // Form state
+  const [data, setData] = useState({
+    firstname: "",
+    lastname: "",
+    email: "",
+    phoneNumber: "",
+    address: "",
+    state: "",
+    city: "",
+    zip: "",
+  });
+
+  // Filter cart items based on quantity > 0
+  const cartItems = foodList.filter(food => quantities[food.id] > 0);
+
+  // Calculate totals
+  const { subtotal, shipping, tax, total } = calculateCartTotals(cartItems, quantities);
+
+  // Handle form input changes
+  const onChangeHandler = (event) => {
+    const { name, value } = event.target;
+    setData(prevData => ({ ...prevData, [name]: value }));
+  };
+
+  // Clear cart quantities after successful payment
+  const clearCart = () => {
+    const clearedQuantities = {};
+    foodList.forEach(food => {
+      clearedQuantities[food.id] = 0;
+    });
+    setQuantities(clearedQuantities);
+  };
+
+  // Handle order form submission
+  const onSubmitHandler = async (event) => {
+    event.preventDefault();
+
+    // Prepare order data payload
+    const orderData = {
+      userAddress: `${data.firstname} ${data.lastname}, ${data.address}, ${data.city}, ${data.state}, ${data.zip}`,
+      phoneNumber: data.phoneNumber,
+      email: data.email,
+      orderedItems: cartItems.map(item => ({
+        foodId: item.id,                      // Corrected: use item.id not item.foodId
+        quantity: quantities[item.id],
+        price: item.price * quantities[item.id],
+        category: item.category,
+        imageUrl: item.imageUrl,
+        description: item.description,
+        name: item.name
+      })),
+      amount: parseFloat(total.toFixed(2)),  // Ensure amount is a number
+      orderStatus: "Preparing"
+    };
+
+    try {
+      const response = await axios.post(
+        'http://localhost:8080/api/order/create',
+        orderData,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.status === 201 && response.data.razorpayOrderId) {
+        initiateRazorpayPayment(response.data);
+      } else {
+        toast.error("Unable to place order");
+      }
+    } catch (error) {
+      toast.error("Unable to place order");
+    }
+  };
+
+  // Initialize Razorpay payment
+  const initiateRazorpayPayment = (order) => {
+    const options = {
+      key: RAZORPAY_KEY,
+      amount: order.amount * 100, // Razorpay expects amount in paise (multiply by 100)
+      currency: "INR",
+      name: "Food Village",
+      description: "Food Order Payment",
+      image: assets.logo,
+      order_id: order.razorpayOrderId,
+      handler: async function (razorpayResponse) {
+        await verifyPayment(razorpayResponse, order.id);
+      },
+      prefill: {
+        name: `${data.firstname} ${data.lastname}`,
+        email: data.email,
+        contact: data.phoneNumber // Razorpay expects 'contact' instead of 'phoneNumber'
+      },
+      theme: { color: "#3399cc" },
+      modal: {
+        ondismiss: async function () {
+          toast.error("Payment Cancelled");
+          await deleteOrder(order.id);
+        }
+      }
+    };
+
+    const rzp = new window.Razorpay(options);
+    rzp.open();
+  };
+
+  // Verify payment on backend
+  const verifyPayment = async (response, orderId) => {
+    try {
+      const res = await axios.post(
+        "http://localhost:8080/api/order/verify",
+        {
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_signature: response.razorpay_signature,
+          orderId
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.status === 200) {
+        toast.success("Payment successful!");
+        clearCart();
+        navigate('/myOrders');
+      } else {
+        toast.error("Payment verification failed");
+        navigate('/');
+      }
+    } catch (error) {
+      toast.error("Payment verification failed");
+    }
+  };
+
+  // Delete order on payment failure/cancellation
+  const deleteOrder = async (orderId) => {
+    try {
+      await axios.delete(`http://localhost:8080/api/order/${orderId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch (error) {
+      console.error("Error deleting cancelled order", error);
+    }
+  };
+
   return (
     <div className="container mt-4">
       <main>
         <div className="py-5 text-container">
-            <img className="d-block mx-auto" src={assets.logo} alt="" width="98" height="98"></img>
+          <img className="d-block mx-auto" src={assets.logo} alt="Logo" width="98" height="98" />
         </div>
+
         <div className="row g-5">
+          {/* Order Summary */}
           <div className="col-md-5 col-lg-4 order-md-last">
             <h4 className="d-flex justify-content-between align-items-center mb-3">
               <span className="text-primary">Order Summary</span>
               <span className="badge bg-primary rounded-pill">{cartItems.length}</span>
             </h4>
             <ul className="list-group mb-3">
-                {cartItems.map(item =>(
-                    <li className="list-group-item d-flex justify-content-between lh-sm">
-                    <div>
-                        <h6 className="my-0">{item.name}</h6>
-                        <small className="text-body-secondary">
-                            Qty: {quantities[item.id]}
-                        </small>
-                    </div>
-                    <span className="text-body-secondary">&#8377;{item.price * quantities[item.id]}</span>
-                    </li>
-                ))}
-              <li className="list-group-item d-flex justify-content-between ">
-                <div>
-                  <span>Shipping</span>
-                </div>
-                <span className="text-body-secondary">&#8377;{subtotal === 0? 0.00 : shipping.toFixed(2)}</span>
+              {cartItems.map(item => (
+                <li key={item.id} className="list-group-item d-flex justify-content-between lh-sm">
+                  <div>
+                    <h6 className="my-0">{item.name}</h6>
+                    <small className="text-muted">Qty: {quantities[item.id]}</small>
+                  </div>
+                  <span className="text-muted">₹{(item.price * quantities[item.id]).toFixed(2)}</span>
+                </li>
+              ))}
+              <li className="list-group-item d-flex justify-content-between">
+                <span>Shipping</span>
+                <span>₹{subtotal === 0 ? "0.00" : shipping.toFixed(2)}</span>
               </li>
               <li className="list-group-item d-flex justify-content-between">
-                <div>
-                  <span>Tax</span>
-                </div>
-                <span className="text-body-secondary">&#8377;{tax.toFixed(2)}</span>
+                <span>Tax</span>
+                <span>₹{tax.toFixed(2)}</span>
               </li>
               <li className="list-group-item d-flex justify-content-between">
-                <span>Total (INR)</span>
-                <strong>&#8377;{total.total}</strong>
+                <strong>Total (INR)</strong>
+                <strong>₹{total.toFixed(2)}</strong>
               </li>
             </ul>
           </div>
 
+          {/* Billing Address Form */}
           <div className="col-md-7 col-lg-8">
             <h4 className="mb-3">Billing address</h4>
-            <form className="needs-validation" noValidate>
+            <form className="needs-validation" onSubmit={onSubmitHandler} noValidate>
               <div className="row g-3">
                 <div className="col-sm-6">
-                  <label htmlFor="firstName" className="form-label">
-                    First name
-                  </label>
-                  <input type="text" className="form-control" id="firstName" placeholder="Akshay" required />
+                  <label className="form-label">First name</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Akshay"
+                    required
+                    name="firstname"
+                    onChange={onChangeHandler}
+                    value={data.firstname}
+                  />
                 </div>
                 <div className="col-sm-6">
-                  <label htmlFor="lastName" className="form-label">
-                    Last name
-                  </label>
-                  <input type="text" className="form-control" id="lastName" placeholder="Kumar" required />
+                  <label className="form-label">Last name</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Kumar"
+                    required
+                    name="lastname"
+                    onChange={onChangeHandler}
+                    value={data.lastname}
+                  />
                 </div>
                 <div className="col-12">
-                  <label htmlFor="email" className="form-label">
-                    Email
-                  </label>
-                  <div className="input-group has-validation">
+                  <label className="form-label">Email</label>
+                  <div className="input-group">
                     <span className="input-group-text">@</span>
                     <input
                       type="email"
                       className="form-control"
-                      id="email"
-                      placeholder="Email"
+                      placeholder="you@example.com"
                       required
+                      name="email"
+                      onChange={onChangeHandler}
+                      value={data.email}
                     />
                   </div>
                 </div>
                 <div className="col-12">
-                  <label htmlFor="address2" className="form-label">
-                    Address  <span className="text-body-secondary"></span>
-                  </label>
-                  <input type="text" className="form-control" id="address2" placeholder="12 Street...." required/>
+                  <label className="form-label">Address</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="1234 Street"
+                    required
+                    name="address"
+                    onChange={onChangeHandler}
+                    value={data.address}
+                  />
                 </div>
                 <div className="col-12">
-                  <label htmlFor="phone" className="form-label">
-                    Phone Number
-                  </label>
-                  <input type="number" className="form-control" id="phone" placeholder="9876543210" required />
+                  <label className="form-label">Phone Number</label>
+                  <input
+                    type="tel"
+                    className="form-control"
+                    placeholder="9876543210"
+                    required
+                    name="phoneNumber"
+                    onChange={onChangeHandler}
+                    value={data.phoneNumber}
+                  />
                 </div>
-                <div className="col-md-5">
-                  <label htmlFor="country" className="form-label">
-                    Country
-                  </label>
-                  <select className="form-select" id="country" required>
+                <div className="col-md-4">
+                  <label className="form-label">State</label>
+                  <select
+                    className="form-select"
+                    name="state"
+                    required
+                    onChange={onChangeHandler}
+                    value={data.state}
+                  >
                     <option value="">Choose...</option>
-                    <option value="Afghanistan">Afghanistan</option>
-                    <option value="Albania">Albania</option>
-                    <option value="Algeria">Algeria</option>
-                    <option value="Andorra">Andorra</option>
-                    <option value="Angola">Angola</option>
-                    <option value="Antigua and Barbuda">Antigua and Barbuda</option>
-                    <option value="Argentina">Argentina</option>
-                    <option value="Armenia">Armenia</option>
-                    <option value="Australia">Australia</option>
-                    <option value="Austria">Austria</option>
-                    <option value="Azerbaijan">Azerbaijan</option>
-                    <option value="Bahamas">Bahamas</option>
-                    <option value="Bahrain">Bahrain</option>
-                    <option value="Bangladesh">Bangladesh</option>
-                    <option value="Barbados">Barbados</option>
-                    <option value="Belarus">Belarus</option>
-                    <option value="Belgium">Belgium</option>
-                    <option value="Belize">Belize</option>
-                    <option value="Benin">Benin</option>
-                    <option value="Bhutan">Bhutan</option>
-                    <option value="Bolivia">Bolivia</option>
-                    <option value="Bosnia and Herzegovina">Bosnia and Herzegovina</option>
-                    <option value="Botswana">Botswana</option>
-                    <option value="Brazil">Brazil</option>
-                    <option value="Brunei">Brunei</option>
-                    <option value="Bulgaria">Bulgaria</option>
-                    <option value="Burkina Faso">Burkina Faso</option>
-                    <option value="Burundi">Burundi</option>
-                    <option value="Cabo Verde">Cabo Verde</option>
-                    <option value="Cambodia">Cambodia</option>
-                    <option value="Cameroon">Cameroon</option>
-                    <option value="Canada">Canada</option>
-                    <option value="Central African Republic">Central African Republic</option>
-                    <option value="Chad">Chad</option>
-                    <option value="Chile">Chile</option>
-                    <option value="China">China</option>
-                    <option value="Colombia">Colombia</option>
-                    <option value="Comoros">Comoros</option>
-                    <option value="Congo (Congo-Brazzaville)">Congo (Congo-Brazzaville)</option>
-                    <option value="Costa Rica">Costa Rica</option>
-                    <option value="Croatia">Croatia</option>
-                    <option value="Cuba">Cuba</option>
-                    <option value="Cyprus">Cyprus</option>
-                    <option value="Czechia (Czech Republic)">Czechia (Czech Republic)</option>
-                    <option value="Democratic Republic of the Congo">Democratic Republic of the Congo</option>
-                    <option value="Denmark">Denmark</option>
-                    <option value="Djibouti">Djibouti</option>
-                    <option value="Dominica">Dominica</option>
-                    <option value="Dominican Republic">Dominican Republic</option>
-                    <option value="Ecuador">Ecuador</option>
-                    <option value="Egypt">Egypt</option>
-                    <option value="El Salvador">El Salvador</option>
-                    <option value="Equatorial Guinea">Equatorial Guinea</option>
-                    <option value="Eritrea">Eritrea</option>
-                    <option value="Estonia">Estonia</option>
-                    <option value="Eswatini (fmr. Swaziland)">Eswatini (fmr. Swaziland)</option>
-                    <option value="Ethiopia">Ethiopia</option>
-                    <option value="Fiji">Fiji</option>
-                    <option value="Finland">Finland</option>
-                    <option value="France">France</option>
-                    <option value="Gabon">Gabon</option>
-                    <option value="Gambia">Gambia</option>
-                    <option value="Georgia">Georgia</option>
-                    <option value="Germany">Germany</option>
-                    <option value="Ghana">Ghana</option>
-                    <option value="Greece">Greece</option>
-                    <option value="Grenada">Grenada</option>
-                    <option value="Guatemala">Guatemala</option>
-                    <option value="Guinea">Guinea</option>
-                    <option value="Guinea-Bissau">Guinea-Bissau</option>
-                    <option value="Guyana">Guyana</option>
-                    <option value="Haiti">Haiti</option>
-                    <option value="Honduras">Honduras</option>
-                    <option value="Hungary">Hungary</option>
-                    <option value="Iceland">Iceland</option>
-                    <option value="India">India</option>
-                    <option value="Indonesia">Indonesia</option>
-                    <option value="Iran">Iran</option>
-                    <option value="Iraq">Iraq</option>
-                    <option value="Ireland">Ireland</option>
-                    <option value="Israel">Israel</option>
-                    <option value="Italy">Italy</option>
-                    <option value="Jamaica">Jamaica</option>
-                    <option value="Japan">Japan</option>
-                    <option value="Jordan">Jordan</option>
-                    <option value="Kazakhstan">Kazakhstan</option>
-                    <option value="Kenya">Kenya</option>
-                    <option value="Kiribati">Kiribati</option>
-                    <option value="Kuwait">Kuwait</option>
-                    <option value="Kyrgyzstan">Kyrgyzstan</option>
-                    <option value="Laos">Laos</option>
-                    <option value="Latvia">Latvia</option>
-                    <option value="Lebanon">Lebanon</option>
-                    <option value="Lesotho">Lesotho</option>
-                    <option value="Liberia">Liberia</option>
-                    <option value="Libya">Libya</option>
-                    <option value="Liechtenstein">Liechtenstein</option>
-                    <option value="Lithuania">Lithuania</option>
-                    <option value="Luxembourg">Luxembourg</option>
-                    <option value="Madagascar">Madagascar</option>
-                    <option value="Malawi">Malawi</option>
-                    <option value="Malaysia">Malaysia</option>
-                    <option value="Maldives">Maldives</option>
-                    <option value="Mali">Mali</option>
-                    <option value="Malta">Malta</option>
-                    <option value="Marshall Islands">Marshall Islands</option>
-                    <option value="Mauritania">Mauritania</option>
-                    <option value="Mauritius">Mauritius</option>
-                    <option value="Mexico">Mexico</option>
-                    <option value="Micronesia">Micronesia</option>
-                    <option value="Moldova">Moldova</option>
-                    <option value="Monaco">Monaco</option>
-                    <option value="Mongolia">Mongolia</option>
-                    <option value="Montenegro">Montenegro</option>
-                    <option value="Morocco">Morocco</option>
-                    <option value="Mozambique">Mozambique</option>
-                    <option value="Myanmar (Burma)">Myanmar (Burma)</option>
-                    <option value="Namibia">Namibia</option>
-                    <option value="Nauru">Nauru</option>
-                    <option value="Nepal">Nepal</option>
-                    <option value="Netherlands">Netherlands</option>
-                    <option value="New Zealand">New Zealand</option>
-                    <option value="Nicaragua">Nicaragua</option>
-                    <option value="Niger">Niger</option>
-                    <option value="Nigeria">Nigeria</option>
-                    <option value="North Korea">North Korea</option>
-                    <option value="North Macedonia">North Macedonia</option>
-                    <option value="Norway">Norway</option>
-                    <option value="Oman">Oman</option>
-                    <option value="Pakistan">Pakistan</option>
-                    <option value="Palau">Palau</option>
-                    <option value="Palestine State">Palestine State</option>
-                    <option value="Panama">Panama</option>
-                    <option value="Papua New Guinea">Papua New Guinea</option>
-                    <option value="Paraguay">Paraguay</option>
-                    <option value="Peru">Peru</option>
-                    <option value="Philippines">Philippines</option>
-                    <option value="Poland">Poland</option>
-                    <option value="Portugal">Portugal</option>
-                    <option value="Qatar">Qatar</option>
-                    <option value="Romania">Romania</option>
-                    <option value="Russia">Russia</option>
-                    <option value="Rwanda">Rwanda</option>
-                    <option value="Saint Kitts and Nevis">Saint Kitts and Nevis</option>
-                    <option value="Saint Lucia">Saint Lucia</option>
-                    <option value="Saint Vincent and the Grenadines">Saint Vincent and the Grenadines</option>
-                    <option value="Samoa">Samoa</option>
-                    <option value="San Marino">San Marino</option>
-                    <option value="Sao Tome and Principe">Sao Tome and Principe</option>
-                    <option value="Saudi Arabia">Saudi Arabia</option>
-                    <option value="Senegal">Senegal</option>
-                    <option value="Serbia">Serbia</option>
-                    <option value="Seychelles">Seychelles</option>
-                    <option value="Sierra Leone">Sierra Leone</option>
-                    <option value="Singapore">Singapore</option>
-                    <option value="Slovakia">Slovakia</option>
-                    <option value="Slovenia">Slovenia</option>
-                    <option value="Solomon Islands">Solomon Islands</option>
-                    <option value="Somalia">Somalia</option>
-                    <option value="South Africa">South Africa</option>
-                    <option value="South Korea">South Korea</option>
-                    <option value="South Sudan">South Sudan</option>
-                    <option value="Spain">Spain</option>
-                    <option value="Sri Lanka">Sri Lanka</option>
-                    <option value="Sudan">Sudan</option>
-                    <option value="Suriname">Suriname</option>
-                    <option value="Sweden">Sweden</option>
-                    <option value="Switzerland">Switzerland</option>
-                    <option value="Syria">Syria</option>
-                    <option value="Taiwan">Taiwan</option>
-                    <option value="Tajikistan">Tajikistan</option>
-                    <option value="Tanzania">Tanzania</option>
-                    <option value="Thailand">Thailand</option>
-                    <option value="Timor-Leste">Timor-Leste</option>
-                    <option value="Togo">Togo</option>
-                    <option value="Tonga">Tonga</option>
-                    <option value="Trinidad and Tobago">Trinidad and Tobago</option>
-                    <option value="Tunisia">Tunisia</option>
-                    <option value="Turkey">Turkey</option>
-                    <option value="Turkmenistan">Turkmenistan</option>
-                    <option value="Tuvalu">Tuvalu</option>
-                    <option value="Uganda">Uganda</option>
-                    <option value="Ukraine">Ukraine</option>
-                    <option value="United Arab Emirates">United Arab Emirates</option>
-                    <option value="United Kingdom">United Kingdom</option>
-                    <option value="United States of America">United States of America</option>
-                    <option value="Uruguay">Uruguay</option>
-                    <option value="Uzbekistan">Uzbekistan</option>
-                    <option value="Vanuatu">Vanuatu</option>
-                    <option value="Vatican City">Vatican City</option>
-                    <option value="Venezuela">Venezuela</option>
-                    <option value="Vietnam">Vietnam</option>
-                    <option value="Yemen">Yemen</option>
-                    <option value="Zambia">Zambia</option>
-                    <option value="Zimbabwe">Zimbabwe</option>
+                    <option value="Maharashtra">Maharashtra</option>
+                    <option value="Tamil Nadu">Tamil Nadu</option>
+                    <option value="Karnataka">Karnataka</option>
+                    <option value="Uttar Pradesh">Uttar Pradesh</option>
+                    <option value="West Bengal">West Bengal</option>
                   </select>
                 </div>
                 <div className="col-md-4">
-                  <label htmlFor="state" className="form-label">
-                    State
-                  </label>
-                  <select className="form-select" id="state" required>
-                    <option value="">Choose...</option>
-                    <option value="Andhra Pradesh">Andhra Pradesh</option>
-                    <option value="Arunachal Pradesh">Arunachal Pradesh</option>
-                    <option value="Assam">Assam</option>
-                    <option value="Bihar">Bihar</option>
-                    <option value="Chhattisgarh">Chhattisgarh</option>
-                    <option value="Goa">Goa</option>
-                    <option value="Gujarat">Gujarat</option>
-                    <option value="Haryana">Haryana</option>
-                    <option value="Himachal Pradesh">Himachal Pradesh</option>
-                    <option value="Jharkhand">Jharkhand</option>
-                    <option value="Karnataka">Karnataka</option>
-                    <option value="Kerala">Kerala</option>
-                    <option value="Madhya Pradesh">Madhya Pradesh</option>
-                    <option value="Maharashtra">Maharashtra</option>
-                    <option value="Manipur">Manipur</option>
-                    <option value="Meghalaya">Meghalaya</option>
-                    <option value="Mizoram">Mizoram</option>
-                    <option value="Nagaland">Nagaland</option>
-                    <option value="Odisha">Odisha</option>
-                    <option value="Punjab">Punjab</option>
-                    <option value="Rajasthan">Rajasthan</option>
-                    <option value="Sikkim">Sikkim</option>
-                    <option value="Tamil Nadu">Tamil Nadu</option>
-                    <option value="Telangana">Telangana</option>
-                    <option value="Tripura">Tripura</option>
-                    <option value="Uttar Pradesh">Uttar Pradesh</option>
-                    <option value="Uttarakhand">Uttarakhand</option>
-                    <option value="West Bengal">West Bengal</option>
-                </select>
-
+                  <label className="form-label">City</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Enter city"
+                    required
+                    name="city"
+                    onChange={onChangeHandler}
+                    value={data.city}
+                  />
                 </div>
-                <div className="col-md-3">
-                  <label htmlFor="zip" className="form-label">
-                    Zip
-                  </label>
-                  <input type="text" className="form-control" id="zip" placeholder="12345" required />
+                <div className="col-md-4">
+                  <label className="form-label">Zip</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="123456"
+                    required
+                    name="zip"
+                    onChange={onChangeHandler}
+                    value={data.zip}
+                  />
                 </div>
               </div>
 
               <hr className="my-4" />
 
-              <button className="w-100 btn btn-primary btn-lg" type="submit" disabled={cartItems.length===0}>
+              <button
+                className="w-100 btn btn-primary btn-lg"
+                type="submit"
+                disabled={cartItems.length === 0}
+              >
                 Continue to checkout
               </button>
             </form>

@@ -8,7 +8,7 @@ import pizza from './pizza.png';
 import rolls from './rolls.png';
 import salad from './salad.png';
 import profile from './profile.png';
-
+import delivery from './delivery.png';
 export const assets = {
   logo,
   cart,
@@ -19,7 +19,8 @@ export const assets = {
   pizza,
   rolls,
   salad,
-  profile
+  profile,
+  delivery
 };
 
 export const categories = [
