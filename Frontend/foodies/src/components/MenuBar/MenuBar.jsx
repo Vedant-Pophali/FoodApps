@@ -104,7 +104,7 @@ const MenuBar = () => {
                   <li>
                     <button 
                       className="dropdown-item" 
-                      onClick={() => navigate('/myorder')}
+                      onClick={() => navigate('/myorders')}
                     >
                       Orders
                     </button>
