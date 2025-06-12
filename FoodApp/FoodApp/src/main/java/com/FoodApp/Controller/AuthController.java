@@ -1,5 +1,6 @@
 package com.FoodApp.Controller;
 
+import com.FoodApp.Entity.LoginLocationEntity;
 import com.FoodApp.IO.AuthenticationRequest;
 import com.FoodApp.IO.AuthenticationResponse;
 import com.FoodApp.Service.AppUserDetailsService;
@@ -44,5 +45,14 @@ public class AuthController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
         }
+    }
+    public ResponseEntity<String> receiveUserLocation(@RequestBody LoginLocationEntity location) {
+        System.out.println("User location received:");
+        System.out.println("User ID: " + location.getUserId());
+        System.out.println("City: " + location.getCity());
+        System.out.println("Latitude: " + location.getLatitude());
+        System.out.println("Longitude: " + location.getLongitude());
+
+        return ResponseEntity.ok("Location received");
     }
 }
