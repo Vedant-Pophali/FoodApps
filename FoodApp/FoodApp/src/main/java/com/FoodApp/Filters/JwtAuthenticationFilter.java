@@ -75,7 +75,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         logger.warn("❌ Token validation failed.");
                     }
                 } else {
-                    logger.info("ℹ️ Email is null or already authenticated.");//
+                    logger.info("ℹ️ Email is null or already authenticated.");
                 }
 
             } catch (ExpiredJwtException e) {
