@@ -1,6 +1,7 @@
 package com.FoodApp.Filters;
 
 import com.FoodApp.Util.JwtUtil;
+import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,6 +19,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Set;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -30,6 +32,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private UserDetailsService userDetailsService;
 
+    // ✅ Used a Set for better performance and easy management of public endpoints
+    private static final Set<String> PUBLIC_ENDPOINTS = Set.of(
+            "/api/login",
+            "/api/register"
+    );
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
@@ -38,8 +46,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         logger.info("--- JWT Filter Invoked ---");
         logger.info("Requested Path: {}", path);
 
-        // Skip token check for public endpoints
-        if (path.equals("/api/login") || path.equals("/api/register") || path.startsWith("/api/foods")) {
+        // ✅ Skip JWT processing for public endpoints and any /api/foods path
+        if (PUBLIC_ENDPOINTS.contains(path) || path.startsWith("/api/foods")) {
             logger.info("Skipping JWT check for public endpoint.");
             filterChain.doFilter(request, response);
             return;
@@ -76,9 +84,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 } else {
                     logger.info("Email null or already authenticated.");
                 }
+
+            } catch (ExpiredJwtException e) {
+                // ✅ Token is expired, send 401
+                logger.warn("Token expired: {}", e.getMessage());
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token expired");
+                return;
+
             } catch (Exception e) {
+                // ✅ Catch-all for any other JWT parsing issues
                 logger.error("JWT Filter error: {} - {}", e.getClass().getSimpleName(), e.getMessage());
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid token");
+                return;
             }
+
         } else {
             logger.info("No Bearer token found or header invalid.");
         }
