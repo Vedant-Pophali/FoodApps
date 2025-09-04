@@ -135,8 +135,7 @@ Make sure to update your Spring Boot and frontend config to read these variables
 ---
 
 ## Screenshots
-
-*(Add your screenshots in `/screenshots` folder and update paths here)*
+ 
 
 - Home Page  
 - Menu Page  
