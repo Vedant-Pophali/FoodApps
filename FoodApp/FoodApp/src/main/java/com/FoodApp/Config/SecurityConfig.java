@@ -42,7 +42,7 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/register", "/api/login", "/api/foods/**","/api/order/all","/api/order/status/**").permitAll()
+                        .requestMatchers("/api/register", "/api/login", "/api/foods/**").permitAll()
                         .anyRequest().authenticated() // temporarily allow any authenticated user
                 )
                 .sessionManagement(session -> session

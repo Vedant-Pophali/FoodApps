@@ -3,9 +3,6 @@ package com.FoodApp.IO;
 import lombok.Builder;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
-
-import java.util.List;
-
 @Data
 @Builder
 public class OrderResponse {
@@ -19,5 +16,4 @@ public class OrderResponse {
     private String paymentStatus;
     private String razorpayOrderId;
     private String orderStatus;
-    private List<OrderItem> orderedItems;
 }
