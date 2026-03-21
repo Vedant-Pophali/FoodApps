@@ -6,6 +6,7 @@ import com.FoodApp.Service.OrderService;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import java.util.List;
 import java.util.Map;
@@ -18,7 +19,7 @@ public class OrderController {
 
     @PostMapping("/create")
     @ResponseStatus(HttpStatus.CREATED)
-    public OrderResponse createOrderWithPayment(@RequestBody OrderRequest orderRequest) {
+    public OrderResponse createOrderWithPayment(@Valid @RequestBody OrderRequest orderRequest) {
         return orderService.createOrderWithPayment(orderRequest);
     }
     @PostMapping("/verify")

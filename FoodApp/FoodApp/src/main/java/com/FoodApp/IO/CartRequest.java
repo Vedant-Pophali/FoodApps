@@ -1,5 +1,7 @@
 package com.FoodApp.IO;
 
+import jakarta.validation.constraints.NotBlank;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -10,5 +12,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Builder
 public class CartRequest {
+    @NotBlank(message = "Food ID is required")
     private String foodId;
 }

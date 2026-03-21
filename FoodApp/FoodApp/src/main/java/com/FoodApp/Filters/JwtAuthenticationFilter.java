@@ -47,11 +47,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         final String authHeader = request.getHeader("Authorization");
-        logger.info("🔐 Authorization Header: {}", authHeader);
+        logger.info("🔐 Authorization Header present: {}", authHeader != null);
 
         if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
-            logger.info("🔍 Extracted JWT Token: {}", token);
+            logger.debug("🔍 JWT Token extracted successfully");
 
             try {
                 String email = jwtUtil.extractUsername(token);
