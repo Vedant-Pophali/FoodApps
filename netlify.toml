@@ -1,0 +1,4 @@
+[build]
+  base = "Frontend/adminpanel"
+  command = "npm run build"
+  publish = "dist"  # or "build" depending on your project

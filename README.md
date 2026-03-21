@@ -1,3 +1,4 @@
+
 # Full-Stack Food Ordering Platform
 
 ![Hero Banner](https://img.shields.io/badge/Spring%20Boot-6DB33F?style=for-the-badge&logo=Spring-Boot&logoColor=white) 
@@ -96,3 +97,12 @@ graph TD
 - **No Plaintext Tokens**: Strict logging configurations prevent JWTs or secure HTTP headers from leaking into terminal/file logs.
 - **Auth Guards**: Restricted admin-only endpoints (`/api/order/all`, `/api/order/status/**`) strictly behind authenticated scopes.
 - **Verified Transactions**: Discarded Razorpay signature trusting in favor of strict `Utils.verifyPaymentSignature()` logic. 
+- **Verified Transactions**: Discarded Razorpay signature trusting in favor of strict `Utils.verifyPaymentSignature()` logic. 
+
+---
+
+## 📞 Contact
+
+Developed by **Vedant Pophali**  
+Email: [officialvedantpophali2005@gmail.com](mailto:officialvedantpophali2005@gmail.com)  
+LinkedIn: [https://www.linkedin.com/in/vedant-pophali/](https://www.linkedin.com/in/vedant-pophali/)
