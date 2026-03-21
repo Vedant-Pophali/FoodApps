@@ -5,6 +5,7 @@ import com.FoodApp.Service.UserService;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 @RestController
 @AllArgsConstructor
@@ -15,7 +16,7 @@ public class UserController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public UserResponse register(@RequestBody UserRequest userRequest){
+    public UserResponse register(@Valid @RequestBody UserRequest userRequest){
         return userService.registerUser(userRequest);
     }
 

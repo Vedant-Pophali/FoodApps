@@ -1,6 +1,7 @@
 package com.FoodApp.Filters;
 
 import com.FoodApp.Util.JwtUtil;
+import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,56 +36,65 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
 
         String path = request.getServletPath();
-        logger.info("--- JWT Filter Invoked ---");
-        logger.info("Requested Path: {}", path);
+        logger.info("--- 🔐 JWT Filter Invoked ---");
+        logger.info("📥 Requested Path: {}", path);
 
-        // Skip token check for public endpoints
-        if (path.equals("/api/login") || path.equals("/api/register") || path.startsWith("/api/foods")) {
-            logger.info("Skipping JWT check for public endpoint.");
+        // ✅ Skip JWT check for public endpoints
+        if (path.startsWith("/api/login") || path.startsWith("/api/register") || path.startsWith("/api/foods")) {
+            logger.info("🟢 Public endpoint matched. Skipping JWT validation.");
             filterChain.doFilter(request, response);
             return;
         }
 
         final String authHeader = request.getHeader("Authorization");
-        logger.info("Authorization Header: {}", authHeader);
+        logger.info("🔐 Authorization Header present: {}", authHeader != null);
 
         if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
-            logger.info("Extracted JWT: {}", token);
+            logger.debug("🔍 JWT Token extracted successfully");
 
             try {
                 String email = jwtUtil.extractUsername(token);
-                logger.info("Extracted email from token: {}", email);
+                logger.info("📧 Extracted Email from JWT: {}", email);
 
                 if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                    logger.info("No existing authentication. Loading user details...");
+                    logger.info("👤 No existing authentication. Loading user details...");
                     UserDetails userDetails = userDetailsService.loadUserByUsername(email);
-                    logger.info("User loaded: {}", userDetails.getUsername());
+                    logger.info("✅ User loaded: {}", userDetails.getUsername());
 
                     boolean isValid = jwtUtil.validateToken(token, userDetails);
-                    logger.info("Is token valid? {}", isValid);
+                    logger.info("🔍 Token valid? {}", isValid);
 
                     if (isValid) {
                         UsernamePasswordAuthenticationToken authToken =
                                 new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                         authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(authToken);
-                        logger.info("SecurityContext successfully updated with authenticated user.");
+                        logger.info("🔐 SecurityContext updated with authenticated user.");
                     } else {
-                        logger.warn("Token validation failed.");
+                        logger.warn("❌ Token validation failed.");
                     }
                 } else {
-                    logger.info("Email null or already authenticated.");
+                    logger.info("ℹ️ Email is null or already authenticated.");
                 }
+
+            } catch (ExpiredJwtException e) {
+                logger.warn("⚠️ JWT expired: {}", e.getMessage());
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token expired");
+                return;
+
             } catch (Exception e) {
-                logger.error("JWT Filter error: {} - {}", e.getClass().getSimpleName(), e.getMessage());
+                logger.error("❌ JWT filter error: {} - {}", e.getClass().getSimpleName(), e.getMessage());
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid token");
+                return;
             }
+
         } else {
-            logger.info("No Bearer token found or header invalid.");
+            logger.info("🔓 No Bearer token provided or header malformed.");
         }
 
-        logger.info("Final SecurityContext Authentication: {}", SecurityContextHolder.getContext().getAuthentication());
-        logger.info("--- End of JWT Filter ---");
+        logger.info("🔐 Final SecurityContext: {}", SecurityContextHolder.getContext().getAuthentication());
+        logger.info("--- 🔚 End of JWT Filter ---");
 
         filterChain.doFilter(request, response);
     }

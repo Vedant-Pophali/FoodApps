@@ -50,15 +50,22 @@ public class CartServiceImpl implements  CartService {
         Map<String,Integer> cartItems = entity.getItems();
         if(cartItems.containsKey(cartRequest.getFoodId())) {
             int currentQty = cartItems.get(cartRequest.getFoodId());
-            if(currentQty>0){
-                cartItems.put(cartRequest.getFoodId(),--currentQty);
-            }
-            else{
+            if(currentQty > 1){
+                cartItems.put(cartRequest.getFoodId(), currentQty - 1);
+            } else {
                 cartItems.remove(cartRequest.getFoodId());
             }
             entity = cartRepository.save(entity);
         }
         return convertToResponse(entity);
+    }
+    @Override
+    public void removeItem(String foodId) {
+        String loggedInUserId = userService.findByUserId();
+        CartEntity entity = cartRepository.findByUserId(loggedInUserId)
+                .orElseThrow(() -> new RuntimeException("Cart not found"));
+        entity.getItems().remove(foodId);
+        cartRepository.save(entity);
     }
 
     private CartResponse convertToResponse(CartEntity cartEntity) {

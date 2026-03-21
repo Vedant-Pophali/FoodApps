@@ -8,6 +8,7 @@
     import com.razorpay.Order;
     import com.razorpay.RazorpayClient;
     import com.razorpay.RazorpayException;
+    import com.razorpay.Utils;
     import org.json.JSONObject;
     import org.springframework.beans.factory.annotation.Autowired;
     import org.springframework.beans.factory.annotation.Value;
@@ -61,10 +62,27 @@
         @Override
         public void verifyPayment(Map<String, String> paymentData, String status) {
             String razorpayOrderId = paymentData.get("razorpay_order_id");
+            String razorpayPaymentId = paymentData.get("razorpay_payment_id");
+            String razorpaySignature = paymentData.get("razorpay_signature");
+
+            try {
+                JSONObject options = new JSONObject();
+                options.put("razorpay_order_id", razorpayOrderId);
+                options.put("razorpay_payment_id", razorpayPaymentId);
+                options.put("razorpay_signature", razorpaySignature);
+
+                boolean isValidSignature = Utils.verifyPaymentSignature(options, RAZORPAY_SECRET);
+                if (!isValidSignature) {
+                    throw new RuntimeException("Invalid payment signature");
+                }
+            } catch (RazorpayException e) {
+                throw new RuntimeException("Error verifying payment signature", e);
+            }
+
             OrderEntity existingOrder = orderRepository.findByRazorpayOrderId(razorpayOrderId).orElseThrow(()->new RuntimeException("Order not found"));
             existingOrder.setPaymentStatus(status);
-            existingOrder.setRazorpaySignature(paymentData.get("razorpay_signature"));
-            existingOrder.setRazorpayPaymentId(paymentData.get("razorpay_payment_id"));
+            existingOrder.setRazorpaySignature(razorpaySignature);
+            existingOrder.setRazorpayPaymentId(razorpayPaymentId);
             orderRepository.save(existingOrder);
             if("paid".equalsIgnoreCase(status)) {
                 cartRepository.deleteByUserId(existingOrder.getUserId());

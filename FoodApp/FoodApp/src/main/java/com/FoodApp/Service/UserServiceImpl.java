@@ -5,7 +5,6 @@ import com.FoodApp.IO.UserRequest;
 import com.FoodApp.IO.UserResponse;
 import com.FoodApp.Repository.UserRepository;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -13,7 +12,6 @@ import org.springframework.stereotype.Service;
 
 @Service
 @AllArgsConstructor
-@Builder
 public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
